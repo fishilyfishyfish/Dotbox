@@ -1,0 +1,69 @@
+name: train
+
+on:
+  workflow_dispatch:          # 수동 실행 (Actions 탭 -> train -> Run workflow)
+  schedule:
+    - cron: "0 */6 * * *"     # 이어 걸기가 끊겼을 때를 대비한 보험
+
+concurrency:
+  group: train                # 동시에 두 번 돌지 않게
+  cancel-in-progress: false
+
+permissions:
+  contents: write             # 학습 결과를 저장소에 커밋
+  actions: write              # 끝나면 스스로 다음 실행을 걸기
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: 준비
+        run: |
+          nproc
+          pip install --upgrade pip
+          pip install numpy
+          pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+      - name: 멈춤 표시 확인
+        id: gate
+        run: |
+          if [ -f state/STOP ] || [ -f state/DONE ]; then
+            echo "run=no" >> $GITHUB_OUTPUT
+            echo "state/STOP 또는 state/DONE 이 있어서 건너뜀."
+          else
+            echo "run=yes" >> $GITHUB_OUTPUT
+          fi
+
+      - name: 학습
+        if: steps.gate.outputs.run == 'yes'
+        run: python -m dab.train --config config.json
+
+      - name: 결과 커밋
+        if: always()
+        run: |
+          git config user.name "train-bot"
+          git config user.email "train-bot@users.noreply.github.com"
+          git add -A state/ || true
+          git diff --staged --quiet || git commit -m "train: 진행 상황 저장"
+          git pull --rebase --autostash || true
+          git push || true
+
+      - name: 다음 실행 걸기
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -f state/STOP ] || [ -f state/DONE ]; then
+            echo "여기서 멈춤."
+          else
+            gh workflow run train.yml --repo "$GITHUB_REPOSITORY"
+            echo "다음 실행을 걸었음."
+          fi

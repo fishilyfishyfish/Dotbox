@@ -1,0 +1,13 @@
+{
+  "max_minutes": 4,
+  "use_gpu": false,
+  "defaults": {
+    "hidden": 64, "layers": 2, "sims": 30, "c_puct": 1.5,
+    "dirichlet_alpha": 0.6, "dirichlet_eps": 0.25, "temp_moves": 4,
+    "games_per_iter": 8, "buffer_size": 5000, "batch_size": 64,
+    "train_steps": 60, "lr": 0.002, "weight_decay": 0.0001,
+    "arena_games": 6, "promote_winrate": 0.55, "test_games": 6,
+    "exact_check": true, "exact_positions": 25
+  },
+  "stages": [ { "name": "2x2", "rows": 2, "cols": 2, "iterations": 5 } ]
+}
